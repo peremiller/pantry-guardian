@@ -1,0 +1,7 @@
+.openai
+.sites-runtime
+.vinext
+dist
+drizzle
+examples
+worker
