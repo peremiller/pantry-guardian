@@ -42,4 +42,7 @@
   .donation-form textarea{min-height:52px;padding:8px}.safety-check{margin-top:8px!important;padding:8px}.expiry-protection{margin-top:6px;padding:7px 9px}
   .smart-panel{max-height:calc(100dvh - 24px);padding:18px 21px}.smart-panel>.modal-head h2{font-size:27px}
 }
+
+.brand-mark{width:51px;height:51px;background:transparent;border-radius:0;display:grid;place-items:center;flex:0 0 auto;box-shadow:none;filter:drop-shadow(3px 3px 0 #a8efc466)}
+.brand-mark img{display:block;width:100%;height:100%;object-fit:contain}
 @media(max-width:700px){.hero-actions{display:flex;flex-direction:row}.hero-actions .scan-main,.hero-actions .add-main{display:none}.hero-account{font-size:8px}.refrigerator-heading,.cabinet-heading{align-items:flex-start}.refrigerator-heading>button,.cabinet-heading>button{white-space:normal}.fridge-wall{grid-template-columns:1fr}.fridge-wall .fridge{min-height:390px}.sidebar-account{display:none}}
