@@ -9,9 +9,9 @@ export const metadata: Metadata = {
     "codex-preview": "development",
   },
   icons: {
-    icon: "/favicon.ico",
-    shortcut: "/favicon.ico",
-    apple: "/pantry-guardian-logo-512.png",
+    icon: "/favicon-v3.ico",
+    shortcut: "/favicon-v3.ico",
+    apple: "/pantry-guardian-logo-v3.png",
   },
 };
 
