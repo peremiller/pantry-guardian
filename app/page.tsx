@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
+import { dateAfter, daysRemaining, isUsableSoon, localCalendarDate } from "../lib/pantry-dates.mjs";
 
 type Food = { id:number; name:string; category:string; location:string; quantity:string; expiry:string; icon:string; image?:string; status?:"Available"|"Opened"|"Eaten"|"Consumed"|"Donated"|"Spoiled"|"Discarded"; remaining?:number; opened?:string; price?:number; purchased?:string };
 type Donation = { id:number; foodName:string; quantity:string; expiryDate:string; pickupArea:string; pickupDetails:string; donorName:string; contact:string; note:string; image?:string; claimed:boolean; createdAt:string };
@@ -48,8 +49,6 @@ const fridgePresets:FridgePreset[]=[
   {id:"samsung-rs57dg4000m9tc",brand:"Samsung",model:"RS57DG4000M9TC",name:"RS4000DC SpaceMax",type:"Side-by-side",capacity:"20.5 cu. ft.",colorName:"Refined Inox",color:"#aeb2b2",zones:["Freezer upper","Freezer lower","Top fridge shelf","Middle fridge shelf","Bottom fridge shelf","Fridge door"]},
   {id:"samsung-rs63r5591b4tc",brand:"Samsung",model:"RS63R5591B4/TC",name:"SpaceMax FlexZone",type:"Side-by-side",capacity:"24.3 cu. ft.",colorName:"Gentle Black Matt",color:"#303131",zones:["Freezer upper","Freezer lower","Top fridge shelf","FlexZone","Bottom fridge shelf","Fridge door"]},
 ];
-const today = new Date(); today.setHours(0,0,0,0);
-const daysLeft=(date:string)=>Math.ceil((new Date(date+"T00:00:00").getTime()-today.getTime())/86400000);
 const fmt=(date:string)=>new Date(date+"T00:00:00").toLocaleDateString("en-PH",{month:"short",day:"numeric",year:"numeric"});
 const readJson=async<T,>(response:Response)=>await response.json() as T;
 
@@ -62,6 +61,8 @@ export default function Home(){
   const storageOpen=activePath==="/storage-map";
   const firstName=session?.user?.name?.trim().split(/\s+/)[0]||"";
   const [foods,setFoods]=useState<Food[]>(seed); const [loaded,setLoaded]=useState(false);
+  const [day,setDay]=useState("1970-01-01");
+  const daysLeft=(date:string)=>daysRemaining(date,day);
   const [query,setQuery]=useState(""); const [filter,setFilter]=useState("All"); const [modal,setModal]=useState(false);
   const [editingFood,setEditingFood]=useState<Food|null>(null); const [entryImage,setEntryImage]=useState("");
   const [donateFood,setDonateFood]=useState<Food|null>(null); const [donations,setDonations]=useState<Donation[]>([]); const [donationsLoading,setDonationsLoading]=useState(true);
@@ -76,13 +77,16 @@ export default function Home(){
   /* Local hydration is intentionally performed once after mount. */
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(()=>{
+    const openingDay=localCalendarDate();setDay(openingDay);
     const setupRaw=localStorage.getItem("pantry-storage");let savedFridges:Refrigerator[]=[{id:"Refrigerator 1",label:"Main refrigerator",modelId:fridgePresets[0].id}];
     let savedCabinets:Cabinet[]=[{id:"Cabinet 1",label:"Grains & breakfast",color:"#a8784f",finish:"Wood",shelfCount:3,shelfBins:["None","None","Left & right bins"]},{id:"Cabinet 2",label:"Cans & cooking",color:"#637d68",finish:"Matte",shelfCount:3,shelfBins:["None","None","Left & right bins"]},{id:"Cabinet 3",label:"Snacks",color:"#d4a843",finish:"Painted",shelfCount:3,shelfBins:["None","None","Left & right bins"]}];
     if(setupRaw){const x=JSON.parse(setupRaw);const legacy:Record<string,string>={"French door":"lg-gr-b22ftqvb","Bottom freezer":"lg-rvb-a127bm","Side-by-side":"lg-rvs-m245bm","Top freezer":"samsung-rs57dg4000m9tc"};const legacyModel=fridgePresets.some(f=>f.id===x.fridgeModel)?x.fridgeModel:(legacy[x.fridgeModel]||fridgePresets[0].id);savedFridges=Array.isArray(x.refrigerators)?x.refrigerators.filter((r:Refrigerator)=>fridgePresets.some(f=>f.id===r.modelId)):(x.hasFridge===false?[]:[{id:"Refrigerator 1",label:"Main refrigerator",modelId:legacyModel}]);savedCabinets=Array.isArray(x.cabinets)?x.cabinets.map((cabinet:Partial<Cabinet>,index:number)=>normalizeCabinet(cabinet,index)):savedCabinets;setRefrigerators(savedFridges);setCabinets(savedCabinets)}
     const raw=localStorage.getItem("pantry-foods");if(raw){const legacyZones=new Set(fridgePresets.flatMap(f=>f.zones));const first=savedFridges[0];const model=fridgePresets.find(f=>f.id===first?.modelId);setFoods((JSON.parse(raw) as Food[]).map(food=>{if(first&&legacyZones.has(food.location)){const direct=model?.zones.find(zone=>zone===food.location);const hint=food.location.toLowerCase();const matched=direct||model?.zones.find(zone=>hint.includes("door")&&zone.toLowerCase().includes("door"))||model?.zones.find(zone=>(hint.includes("crisper")||hint.includes("fresh"))&&(zone.toLowerCase().includes("fresh")||zone.toLowerCase().includes("crisper")))||model?.zones.find(zone=>hint.includes("middle")&&zone.toLowerCase().includes("middle"))||model?.zones.find(zone=>hint.includes("top")&&zone.toLowerCase().includes("top"))||model?.zones[0];return {...food,location:matched?`${first.id} · ${matched}`:"Unassigned"}}const cabinet=savedCabinets.find(item=>food.location===item.id||food.location.startsWith(`${item.id} · `));if(!cabinet||food.location===cabinet.id)return food;const legacySection=food.location.slice(cabinet.id.length+3);const shelf=legacySection==="Upper shelf"?1:legacySection==="Middle shelf"?2:legacySection==="Lower shelf"?3:1;const bin=legacySection==="Left bin"?" · Left bin":legacySection==="Right bin"?" · Right bin":"";return {...food,location:`${cabinet.id} · Shelf ${Math.min(shelf,cabinet.shelfCount)}${bin}`}}))}
+    else setFoods(seed.map(food=>({...food,expiry:dateAfter(openingDay,daysRemaining(food.expiry,"2026-07-18"))})));
     const s=localStorage.getItem("pantry-saved");if(s)setSaved(+s);const smart=localStorage.getItem("pantry-smart");if(smart){const x=JSON.parse(smart);if(x.members)setMembers(x.members);if(x.prefs)setPrefs(x.prefs);if(x.alerts)setAlerts(x.alerts)}setLoaded(true)
   },[]);
   /* eslint-enable react-hooks/set-state-in-effect */
+  useEffect(()=>{const timer=window.setInterval(()=>setDay(localCalendarDate()),60_000);return()=>window.clearInterval(timer)},[]);
   useEffect(()=>{if(loaded)localStorage.setItem("pantry-foods",JSON.stringify(foods))},[foods,loaded]);
   useEffect(()=>{if(loaded)localStorage.setItem("pantry-storage",JSON.stringify({refrigerators,cabinets}))},[refrigerators,cabinets,loaded]);
   useEffect(()=>{if(loaded)localStorage.setItem("pantry-smart",JSON.stringify({members,prefs,alerts}))},[members,prefs,alerts,loaded]);
@@ -100,7 +104,7 @@ export default function Home(){
   const canDonate=(f:Food)=>isActive(f)&&daysLeft(f.expiry)>=0&&daysLeft(f.expiry)<=3;
   const eligibleDonations=foods.filter(canDonate).sort((a,b)=>a.expiry.localeCompare(b.expiry));
   const sorted=useMemo(()=>foods.filter(f=>(filter==="All"||f.category===filter)&&f.name.toLowerCase().includes(query.toLowerCase())).sort((a,b)=>a.expiry.localeCompare(b.expiry)),[foods,filter,query]);
-  const soon=foods.filter(f=>isActive(f)&&daysLeft(f.expiry)<=7).sort((a,b)=>a.expiry.localeCompare(b.expiry));
+  const soon=foods.filter(f=>isActive(f)&&isUsableSoon(f.expiry,day)).sort((a,b)=>a.expiry.localeCompare(b.expiry));
   const recipeBank=[
     {title:"Creamy spinach & avocado eggs",emoji:"🍳",time:"12 min",meal:"Breakfast",uses:["spinach","avocado","egg"],steps:"Wilt the spinach, fold into soft eggs, then top with sliced avocado."},
     {title:"Berry yogurt rescue smoothie",emoji:"🥤",time:"5 min",meal:"Snack",uses:["yogurt","milk","berry"],steps:"Blend yogurt and milk with any fruit, ice, and a pinch of cinnamon."},
@@ -108,7 +112,7 @@ export default function Home(){
     {title:"Quick tomato shakshuka",emoji:"🍅",time:"18 min",meal:"Dinner",uses:["tomato","egg","spinach"],steps:"Simmer tomatoes with spices, add spinach, crack in eggs, and cover until set."},
     {title:"Overnight yogurt oats",emoji:"🥣",time:"5 min prep",meal:"Tomorrow",uses:["yogurt","milk","oat"],steps:"Mix oats, yogurt, and milk tonight; chill and top with fruit tomorrow."},
   ];
-  const recipes=recipeBank.map(r=>({...r,matches:foods.filter(f=>isActive(f)&&r.uses.some(u=>f.name.toLowerCase().includes(u))&&daysLeft(f.expiry)<=7)})).filter(r=>r.matches.length).sort((a,b)=>b.matches.length-a.matches.length).slice(0,3);
+  const recipes=recipeBank.map(r=>({...r,matches:foods.filter(f=>isActive(f)&&r.uses.some(u=>f.name.toLowerCase().includes(u))&&isUsableSoon(f.expiry,day))})).filter(r=>r.matches.length).sort((a,b)=>b.matches.length-a.matches.length).slice(0,3);
   const showToast=(m:string)=>{setToast(m);setTimeout(()=>setToast(""),2600)};
   const openAddFood=()=>{setEditingFood(null);setEntryImage("");setModal(true)};
   const openEditFood=(food:Food)=>{setEditingFood(food);setEntryImage(food.image||"");setModal(true)};
@@ -147,6 +151,8 @@ export default function Home(){
   const requestAlerts=async()=>{if("Notification" in window){const result=await Notification.requestPermission();setAlerts(v=>({...v,browser:result==="granted"}));showToast(result==="granted"?"Browser alerts enabled":"Notification permission was not enabled")}};
   const downloadCalendar=()=>{const urgent=soon[0];const body=`BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nDTSTART:${urgent?.expiry.replaceAll("-","")||"20260719"}\nSUMMARY:Use ${urgent?.name||"expiring pantry food"}\nDESCRIPTION:Pantry Guardian expiry reminder\nEND:VEVENT\nEND:VCALENDAR`;const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([body],{type:"text/calendar"}));a.download="pantry-reminder.ics";a.click();showToast("Calendar reminder downloaded")};
   function saveFood(e:FormEvent<HTMLFormElement>){e.preventDefault();const fd=new FormData(e.currentTarget);const cat=String(fd.get("category"));const f:Food={...editingFood,id:editingFood?.id||Date.now(),name:String(fd.get("name")),quantity:String(fd.get("quantity")),category:cat,location:String(fd.get("location")),expiry:String(fd.get("expiry")),icon:icons[cat]||"📦",image:entryImage||undefined,remaining:Number(fd.get("remaining")||100),opened:String(fd.get("opened")||""),purchased:String(fd.get("purchased")||""),price:Number(fd.get("price")||0)};setFoods(v=>editingFood?v.map(x=>x.id===editingFood.id?f:x):[...v,f]);closeFoodForm();showToast(editingFood?`${f.name} updated`:`${f.name} added to your pantry`)}
+  if(!loaded)return <main aria-busy="true" style={{padding:"2rem"}}><p role="status">Opening your pantry…</p></main>;
+  const expiredCount=foods.filter(f=>isActive(f)&&daysLeft(f.expiry)<0).length;
   return <div className="app-shell">
     <aside className="sidebar">
       <div className="brand"><div className="brand-mark"><img src="/pantry-guardian-logo-v4.png" alt="Pantry Guardian refrigerator and fresh apple logo"/></div><div>Pantry<br/>Guardian</div></div>
@@ -156,6 +162,7 @@ export default function Home(){
     </aside>
     <main>
       <header className="compact-hero"><div><div className="eyebrow">GOOD MORNING{firstName?`, ${firstName.toUpperCase()}`:""} <span>☀</span></div><h1>Save today’s food.<br/><em>Waste nothing.</em></h1><p>{soon.length?`${soon[0].name} needs attention first. You have ${soon.length} items to use this week.`:"Everything is on track—no urgent food today."}</p></div><div className="hero-actions"><button className="hero-account" onClick={()=>session?.user?void signOut({callbackUrl:"/"}):void signIn("google",{callbackUrl:"/"})}>{session?.user?<><i>{firstName.slice(0,1).toUpperCase()}</i>{firstName}</>:<><i>G</i> Google sign in</>}</button><button className="scan-main" onClick={()=>openPanel("capture")}>⌁ Smart capture</button><button className="add-main" onClick={openAddFood}><span>＋</span> Add food</button></div></header>
+      {expiredCount>0&&<p role="status" className="tip">{expiredCount} expired item{expiredCount===1?"":"s"} need review in Pantry inventory. They are excluded from meal suggestions and donations.</p>}
       <section className="today-plan"><div className="today-priority"><span>TODAY’S RESCUE PLAN</span><h2>{soon[0]?`Use ${soon[0].name} today`:"Your pantry is in great shape"}</h2><p>{soon[0]?`${soon[0].quantity} in ${soon[0].location} · ${soon[0].remaining??100}% remaining · ${daysLeft(soon[0].expiry)} day left`:"Check back tomorrow for your next action."}</p></div><div className="today-recipes">{recipes.slice(0,2).map(r=><button key={r.title} onClick={()=>showToast(`${r.title} added to today’s plan`)}><b>{r.emoji} {r.title}</b><small>{r.time} · uses {r.matches.length} urgent items</small></button>)}</div><div className="today-actions"><button onClick={()=>soon[0]&&consumeItem(soon[0].id)}>✓ Mark used</button><button onClick={()=>openPanel("alerts")}>◉ Remind me</button><button onClick={()=>soon[0]&&setRemaining(soon[0].id,Math.max(0,(soon[0].remaining??100)-25))}>−25% used</button></div></section>
       <section className="stats">
         <article><i className="mint">▣</i><div><small>Active items</small><strong>{foods.filter(isActive).length}</strong><span>{foods.filter(f=>!isActive(f)).length} in history</span></div></article>
@@ -198,3 +205,4 @@ export default function Home(){
     {toast&&<div className="toast">✓ {toast}</div>}
   </div>
 }
+

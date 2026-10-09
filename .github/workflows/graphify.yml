@@ -46,6 +46,9 @@ jobs:
         if: steps.semantic.outcome != 'success'
         run: graphify extract . --code-only --force
 
+      - name: Generate graph report
+        run: graphify cluster-only
+
       - name: Record build metadata
         env:
           GRAPHIFY_SEMANTIC_COMPLETE: ${{ steps.semantic.outcome == 'success' }}
@@ -65,7 +68,7 @@ jobs:
               "generated_at": datetime.now(timezone.utc).isoformat(),
               "semantic_complete": os.environ["GRAPHIFY_SEMANTIC_COMPLETE"] == "true",
               "node_count": len(graph.get("nodes", [])),
-              "edge_count": len(graph.get("edges", [])),
+              "edge_count": len(graph.get("edges", graph.get("links", []))),
           }
           Path("graphify-out/BUILD_METADATA.json").write_text(
               json.dumps(metadata, indent=2) + "\n",
