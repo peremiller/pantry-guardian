@@ -5,9 +5,8 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Pantry Guardian — Waste less, share more",
   description: "Track food, rescue items before expiry, visualize storage, and safely share surplus food.",
-  other: {
-    "codex-preview": "development",
-  },
+  metadataBase: new URL("https://pantry-guardian-nine.vercel.app"),
+  alternates: { canonical: "/" },
   icons: {
     icon: "/favicon-v4.ico",
     shortcut: "/favicon-v4.ico",

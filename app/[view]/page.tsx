@@ -1,35 +1,19 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import PantryGuardian from "../page";
+import PantryWorkspace from "../pantry-workspace";
+import { pageTitles, pageDescriptions } from "../../lib/navigation";
 
-const routeTitles = {
-  pantry: "Pantry",
-  "ai-copilot": "AI Copilot",
-  "smart-capture": "Smart Capture",
-  "storage-map": "Storage Map",
-  "use-soon": "Use Soon",
-  "public-pantry": "Public Pantry",
-  household: "Household",
-  insights: "Insights",
-  alerts: "Expiry Alerts",
-  preferences: "Food Preferences",
-} as const;
-
-type RoutedView = keyof typeof routeTitles;
 type PageProps = { params: Promise<{ view: string }> };
-
 export function generateStaticParams() {
-  return Object.keys(routeTitles).map((view) => ({ view }));
+  return Object.keys(pageTitles).filter(path=>path!=="/").map(path=>({view:path.slice(1)}));
 }
-
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { view } = await params;
-  const title = routeTitles[view as RoutedView];
-  return title ? { title: `${title} · Pantry Guardian` } : {};
+  const path=`/${view}`;
+  return pageTitles[path] ? {title:`${pageTitles[path]} · Pantry Guardian`,description:pageDescriptions[path],alternates:{canonical:path}} : {};
 }
-
 export default async function RoutedPantryGuardianPage({ params }: PageProps) {
   const { view } = await params;
-  if (!(view in routeTitles)) notFound();
-  return <PantryGuardian />;
+  if (!Object.hasOwn(pageTitles,`/${view}`)) notFound();
+  return <PantryWorkspace />;
 }
