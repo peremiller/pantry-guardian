@@ -70,3 +70,14 @@ The build targets OpenNext/Vinext on Cloudflare Workers. `.openai/hosting.json` 
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+
+## Offline operation
+
+Vercel builds with `npm run build:vercel`. After the Next.js build, the offline packager generates a versioned service worker with every page and all compiled assets. Open the production HTTPS URL once and wait for **Offline ready**. Installation on the home screen is optional. Normal pantry operations then use saved pages and device storage automatically. Keep the device powered by its battery or a power bank.
+
+Food, photos, kitchen settings, saved meals, donation drafts, and copilot history are saved locally with an IndexedDB copy and a browser-storage mirror. The Offline & backups page exports and restores full JSON backups. No local data is automatically uploaded. Clearing site data removes local data.
+
+Cloud inference, photo recognition, transcription, sign-in, and live community availability require connectivity. Offline copilot guidance uses local pantry rules. Community offers are timestamped snapshots and donation submissions save as drafts when disconnected; drafts require review before public posting.
+
+The built-in offline test blocks same-origin app requests in the service worker and can be ended offline. Cache lifecycle and transport-failure tests run with `node --test tests/offline-worker.test.mjs`. Service workers require HTTPS or a browser-trusted local origin; the HTTP design preview does not provide this capability.

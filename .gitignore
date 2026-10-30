@@ -45,3 +45,7 @@ next-env.d.ts
 
 # Generated repository knowledge graph
 /graphify-out/
+
+# Generated per-build offline bundle
+/public/sw.js
+/public/offline-build.json

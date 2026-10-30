@@ -20,6 +20,7 @@ export const navigation = [
     { path: "/alerts", label: "Expiry alerts", icon: "◉" },
     { path: "/preferences", label: "Food preferences", icon: "⚙" },
     { path: "/smart-tools", label: "All kitchen tools", icon: "☷" },
+    { path: "/offline", label: "Offline & backups", icon: "↓" },
   ] },
 ];
 export const pageTitles: Record<string,string> = Object.fromEntries([
@@ -40,5 +41,6 @@ export const pageDescriptions: Record<string,string> = {
   "/alerts":"Gentle reminders to help you use good food in time.",
   "/preferences":"Make your kitchen experience feel a little more like you.",
   "/smart-tools":"Your pantry, planning, and household tools, all within reach.",
+  "/offline":"Your kitchen stays with you, with or without a connection.",
   "/overview":"A clear view of what’s in your kitchen and the food you’ve rescued.",
 };

@@ -52,6 +52,7 @@ test("serves each Pantry Guardian page at its own URL", async () => {
     "/rescue-plan",
     "/smart-tools",
     "/overview",
+    "/offline",
   ];
 
   for (const route of routes) {
