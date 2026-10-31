@@ -76,8 +76,19 @@ MIT — see [LICENSE](LICENSE).
 
 Vercel builds with `npm run build:vercel`. After the Next.js build, the offline packager generates a versioned service worker with every page and all compiled assets. Open the production HTTPS URL once and wait for **Offline ready**. Installation on the home screen is optional. Normal pantry operations then use saved pages and device storage automatically. Keep the device powered by its battery or a power bank.
 
-Food, photos, kitchen settings, saved meals, donation drafts, and copilot history are saved locally with an IndexedDB copy and a browser-storage mirror. The Offline & backups page exports and restores full JSON backups. No local data is automatically uploaded. Clearing site data removes local data.
+Food, photos, kitchen settings, saved meals, unfinished food/donation forms, copilot prompts, and history save automatically into account-scoped IndexedDB. Earlier browser-storage and IndexedDB records are retained and imported into the guest workspace, choosing the newest timestamp. New account data is never mirrored into global browser-storage keys. The Offline & backups page exports and restores full JSON backups. Guest records are never uploaded. Account changes use a separate pending outbox and require a verified matching signed-in account. Clearing site data removes local data.
 
 Cloud inference, photo recognition, transcription, sign-in, and live community availability require connectivity. Offline copilot guidance uses local pantry rules. Community offers are timestamped snapshots and donation submissions save as drafts when disconnected; drafts require review before public posting.
 
 The built-in offline test blocks same-origin app requests in the service worker and can be ended offline. Cache lifecycle and transport-failure tests run with `node --test tests/offline-worker.test.mjs`. Service workers require HTTPS or a browser-trusted local origin; the HTTP design preview does not provide this capability.
+
+
+### Account workspaces and concurrent edits
+
+Guest and each verified Google subject have separate local workspaces. On an unavailable identity/backend response, reopening retains the last selected local snapshot. A verified logout or account change switches scopes; requests and editor saves tied to the old account cannot write to the new scope. Backups identify their owner and cannot be imported into a different workspace.
+
+Every local edit uses an atomic IndexedDB read/write transaction with the editor's expected local version. Two tabs editing stale snapshots retain both copies, stop account uploads, and show explicit copy selection with durable backups. BroadcastChannel only announces changes; correctness does not depend on it. Server synchronization uses canonical revisions and idempotent retries, returning both copies on conflict. API, authentication, authorization-bearing requests, and private RSC responses are never stored by the worker. The public cache contains only build-verified static pages and assets with SHA-256 checks.
+
+The Vercel deployment has no configured durable private pantry database, so authenticated account synchronization returns an honest 503 and retains the local outbox. Public donation memory storage is never used to acknowledge private saves. The optional D1 migration `db/migrations/0002_offline_workspaces.sql` is included for a future configured durable deployment and is **not applied** by this change. Google sign-in, private cloud sync, hosted AI and live donations have not been verified with a real signed-in account.
+
+Run `npm run test:offline` for cache lifecycle, persistence, legacy migration, account isolation, bounded outages, multi-tab stale snapshot/reopen, and conflict resolution tests. A device must have power and finish the initial public download before disconnected startup can work.

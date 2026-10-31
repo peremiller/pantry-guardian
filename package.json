@@ -16,7 +16,8 @@
     "typecheck": "bash scripts/sites-env.sh -- tsc --noEmit",
     "check": "npm run lint && npm run typecheck",
     "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate",
-    "build:vercel": "next build && node scripts/build-offline.mjs"
+    "build:vercel": "next build && node scripts/build-offline.mjs",
+    "test:offline": "node --test tests/offline*.test.mjs tests/scoped-*.test.mjs"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",
@@ -43,7 +44,8 @@
     "typescript": "5.9.3",
     "vinext": "0.0.50",
     "vite": "8.0.16",
-    "wrangler": "4.92.0"
+    "wrangler": "4.92.0",
+    "fake-indexeddb": "6.2.7"
   },
   "type": "module",
   "displayName": "Pantry Guardian"
