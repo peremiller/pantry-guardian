@@ -48,3 +48,8 @@ test('authorization, RSC and private API traffic cannot enter a public cache',as
  assert.equal(await app.dispatch('fetch',{request:new Request('https://pantry.test/?_rsc=private')}),undefined);
  const before=(await app.caches.keys()).length;await app.dispatch('fetch',{request:new Request('https://pantry.test/api/offline/workspace')});assert.equal((await app.caches.keys()).length,before);assert.equal(await app.caches.match('/api/offline/workspace'),undefined);
 });
+
+test('renamed static runtime copies retain strict integrity and hydrate original asset URLs offline',async()=>{
+ const app=harness();const original='/_next/static/app.js',copy='/offline-assets/version/runtime-app.js';app.config.assetSources={[original]:copy};app.config.integrity={[original]:Buffer.from(await webcrypto.subtle.digest('SHA-256',new TextEncoder().encode('saved:'+copy))).toString('hex')};
+ await app.dispatch('install');assert.equal((await app.message({type:'STATUS'})).ready,true);app.offline();const calls=app.networkCalls;const response=await app.dispatch('fetch',{request:new Request('https://pantry.test'+original)});assert.equal(response.url,'','copied assets must resolve relative URLs against their original request');assert.equal(await response.text(),'saved:'+copy);assert.equal(app.networkCalls,calls);
+});

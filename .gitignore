@@ -49,3 +49,5 @@ next-env.d.ts
 # Generated per-build offline bundle
 /public/sw.js
 /public/offline-build.json
+
+/public/offline-assets/
