@@ -76,6 +76,14 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    // Vercel function memory is not durable or shared across instances. Never
+    // acknowledge a public offer that can disappear when this instance ends.
+    if (isVercel) {
+      return Response.json(
+        { error: "Public Pantry posting requires durable community storage. Keep your offer as a device draft and try again when the service is available." },
+        { status: 503 },
+      );
+    }
     const payload = (await request.json()) as Record<string, unknown>;
     const foodName = String(payload.foodName || "").trim();
     const quantity = String(payload.quantity || "").trim();
@@ -113,11 +121,19 @@ export async function POST(request: Request) {
         model: "omni-moderation-latest",
         input: publicText,
       });
+      if (!moderation.results?.length) {
+        return Response.json({ error: "Public Pantry safety screening is unavailable. Please try again later." }, { status: 503 });
+      }
       if (moderation.results[0]?.flagged) {
         return Response.json({ error: "This public listing needs changes before it can be posted." }, { status: 400 });
       }
     } catch (error) {
-      if (!(error instanceof Error && error.message.includes("OPENAI_API_KEY"))) throw error;
+      // Posting must fail closed rather than publishing unmoderated personal
+      // details if a deployment omitted its moderation credential.
+      if (error instanceof Error && error.message.includes("OPENAI_API_KEY")) {
+        return Response.json({ error: "Public Pantry safety screening is unavailable. Please try again later." }, { status: 503 });
+      }
+      throw error;
     }
 
     const values = {
@@ -153,6 +169,12 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
+    if (isVercel) {
+      return Response.json(
+        { error: "Public Pantry claiming requires durable community storage. Please try again when the service is available." },
+        { status: 503 },
+      );
+    }
     const payload = (await request.json()) as { id?: number };
     if (!payload.id) return Response.json({ error: "Donation ID is required." }, { status: 400 });
 
