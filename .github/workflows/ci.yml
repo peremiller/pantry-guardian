@@ -20,5 +20,5 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
-      - run: node --test tests/pantry-dates.test.mjs
+      - run: node --test tests/pantry-dates.test.mjs tests/public-donation-safety.test.mjs
       - run: npm test
