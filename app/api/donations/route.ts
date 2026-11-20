@@ -31,7 +31,7 @@ function memoryStore() {
 function daysUntil(date: string) {
   // Date parsing may silently normalize impossible dates (for example Feb 30).
   // Only genuine ISO calendar dates may pass the public food-safety gate.
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) return NaN;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return NaN;
   const expiry = new Date(`${date}T00:00:00Z`).getTime();
   if (!Number.isFinite(expiry) || new Date(expiry).toISOString().slice(0, 10) !== date) return NaN;
   const today = new Date(`${dateOnly()}T00:00:00Z`).getTime();
