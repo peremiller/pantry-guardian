@@ -70,3 +70,25 @@ test("invalid safety confirmation cannot reach moderation or storage", async () 
   assert.equal(response.status, 400);
   assert.equal(invoked, false);
 });
+
+test("invalid and normalized calendar dates are rejected before public moderation or persistence", async () => {
+  let called = false;
+  const { POST } = handlers({ getOpenAI: async () => {
+    called = true;
+    throw Error("Unsafe date reached moderation");
+  } });
+  for (const expiryDate of [
+    "2026-02-30", "2025-02-29", "2026-11-31",
+    "2026-13-01", "2026-2-03", "not-a-date", "2026-02-20T00:00:00Z",
+  ]) {
+    const request = new Request("https://localhost/api/donations", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...safePayload, expiryDate }),
+    });
+    const response = await POST(request);
+    assert.equal(response.status, 400, `Expiry ${expiryDate} should be rejected`);
+    assert.match((await response.json()).error, /expired food/i);
+  }
+  assert.equal(called, false, "Invalid dates must not reach moderation or the database");
+});
