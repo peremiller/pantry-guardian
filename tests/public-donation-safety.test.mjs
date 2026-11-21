@@ -92,3 +92,37 @@ test("invalid and normalized calendar dates are rejected before public moderatio
   }
   assert.equal(called, false, "Invalid dates must not reach moderation or the database");
 });
+
+
+test("invalid JSON bodies and non-object donations fail closed before moderation", async () => {
+  let moderationCalled = false;
+  const { POST } = handlers({ getOpenAI: async () => {
+    moderationCalled = true;
+    throw Error("Unexpected moderation");
+  } });
+  for (const body of ["null", "[]", '"text"', "{bad-json", ""]) {
+    const request = new Request("https://localhost/api/donations", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body,
+    });
+    const response = await POST(request);
+    assert.equal(response.status, 400, "Invalid donation body should receive 400");
+    assert.match((await response.json()).error, /valid donation object/i);
+  }
+  assert.equal(moderationCalled, false);
+});
+
+test("unsafe claim IDs and malformed PATCH JSON return 400 without database access", async () => {
+  const { PATCH } = handlers();
+  for (const body of ["null", "[]", "{bad-json", "{}", '{"id":0}', '{"id":-1}', '{"id":1.2}', '{"id":"1"}', '{"id":9007199254740992}']) {
+    const request = new Request("https://localhost/api/donations", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body,
+    });
+    const response = await PATCH(request);
+    assert.equal(response.status, 400, "Invalid claim must not reach D1");
+    assert.match((await response.json()).error, /valid donation/i);
+  }
+});
