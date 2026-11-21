@@ -88,7 +88,11 @@ export async function POST(request: Request) {
         { status: 503 },
       );
     }
-    const payload = (await request.json()) as Record<string, unknown>;
+    const parsed: unknown = await request.json().catch(() => null);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return Response.json({ error: "A valid donation object is required." }, { status: 400 });
+    }
+    const payload = parsed as Record<string, unknown>;
     const foodName = String(payload.foodName || "").trim();
     const quantity = String(payload.quantity || "").trim();
     const expiryDate = String(payload.expiryDate || "").trim();
@@ -179,8 +183,14 @@ export async function PATCH(request: Request) {
         { status: 503 },
       );
     }
-    const payload = (await request.json()) as { id?: number };
-    if (!payload.id) return Response.json({ error: "Donation ID is required." }, { status: 400 });
+    const parsed: unknown = await request.json().catch(() => null);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return Response.json({ error: "A valid donation object is required." }, { status: 400 });
+    }
+    const payload = parsed as { id?: unknown };
+    if (typeof payload.id !== "number" || !Number.isSafeInteger(payload.id) || payload.id <= 0) {
+      return Response.json({ error: "A valid donation ID is required." }, { status: 400 });
+    }
 
     if (isVercel) {
       const donation = memoryStore().find((item) => item.id === payload.id);
