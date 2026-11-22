@@ -11,9 +11,13 @@ const js = ts.transpileModule(source, {
   fileName: "route.ts",
 }).outputText.replace(/^import .*;\s*$/gm, "").replace(/^export /gm, "");
 
-function handlers({ vercel = false, getOpenAI = async () => { throw new Error("OPENAI_API_KEY missing"); } } = {}) {
-  const create = new Function("process", "Response", "getOpenAI", js + "\nreturn { POST, PATCH };");
-  return create({ env: { VERCEL: vercel ? "1" : "0" } }, Response, getOpenAI);
+function handlers({ vercel = false, getOpenAI = async () => { throw new Error("OPENAI_API_KEY missing"); }, mockDatabase = null } = {}) {
+  // The real route executes; only the D1 dependency is substituted for this case.
+  const runnable = mockDatabase
+    ? js.replace("async function d1() {", "async function unusedProductionD1() {") + "\nconst d1 = async () => mockDatabase;"
+    : js;
+  const create = new Function("process", "Response", "getOpenAI", "mockDatabase", "eq", runnable + "\nreturn { POST, PATCH };");
+  return create({ env: { VERCEL: vercel ? "1" : "0" } }, Response, getOpenAI, mockDatabase, (field, id) => ({ field, id }));
 }
 const today = new Date().toISOString().slice(0, 10);
 const safePayload = {
@@ -125,4 +129,22 @@ test("unsafe claim IDs and malformed PATCH JSON return 400 without database acce
     assert.equal(response.status, 400, "Invalid claim must not reach D1");
     assert.match((await response.json()).error, /valid donation/i);
   }
+});
+
+test("claiming a missing donation returns 404 and cannot report a successful claim", async () => {
+  let writes = 0;
+  const db = {
+    update: () => ({
+      set: () => ({
+        where: () => ({
+          returning: async () => { writes++; return []; },
+        }),
+      }),
+    }),
+  };
+  const { PATCH } = handlers({ mockDatabase: { db, pantryDonations: { id: "id" } } });
+  const response = await PATCH(patchRequest());
+  assert.equal(response.status, 404);
+  assert.match((await response.json()).error, /not found/i);
+  assert.equal(writes, 1, "Only the requested claim lookup should be attempted");
 });
