@@ -205,6 +205,9 @@ export async function PATCH(request: Request) {
       .set({ claimed: true })
       .where(eq(pantryDonations.id, payload.id))
       .returning();
+    if (!donation) {
+      return Response.json({ error: "Donation not found." }, { status: 404 });
+    }
     return Response.json({ donation });
   } catch (error) {
     return errorResponse(error);
