@@ -29,8 +29,12 @@ function memoryStore() {
 }
 
 function daysUntil(date: string) {
-  const today = new Date(`${dateOnly()}T00:00:00Z`).getTime();
+  // Date parsing may silently normalize impossible dates (for example Feb 30).
+  // Only genuine ISO calendar dates may pass the public food-safety gate.
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return NaN;
   const expiry = new Date(`${date}T00:00:00Z`).getTime();
+  if (!Number.isFinite(expiry) || new Date(expiry).toISOString().slice(0, 10) !== date) return NaN;
+  const today = new Date(`${dateOnly()}T00:00:00Z`).getTime();
   return Math.ceil((expiry - today) / 86_400_000);
 }
 
@@ -84,7 +88,11 @@ export async function POST(request: Request) {
         { status: 503 },
       );
     }
-    const payload = (await request.json()) as Record<string, unknown>;
+    const parsed: unknown = await request.json().catch(() => null);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return Response.json({ error: "A valid donation object is required." }, { status: 400 });
+    }
+    const payload = parsed as Record<string, unknown>;
     const foodName = String(payload.foodName || "").trim();
     const quantity = String(payload.quantity || "").trim();
     const expiryDate = String(payload.expiryDate || "").trim();
@@ -175,8 +183,14 @@ export async function PATCH(request: Request) {
         { status: 503 },
       );
     }
-    const payload = (await request.json()) as { id?: number };
-    if (!payload.id) return Response.json({ error: "Donation ID is required." }, { status: 400 });
+    const parsed: unknown = await request.json().catch(() => null);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return Response.json({ error: "A valid donation object is required." }, { status: 400 });
+    }
+    const payload = parsed as { id?: unknown };
+    if (typeof payload.id !== "number" || !Number.isSafeInteger(payload.id) || payload.id <= 0) {
+      return Response.json({ error: "A valid donation ID is required." }, { status: 400 });
+    }
 
     if (isVercel) {
       const donation = memoryStore().find((item) => item.id === payload.id);
@@ -191,6 +205,9 @@ export async function PATCH(request: Request) {
       .set({ claimed: true })
       .where(eq(pantryDonations.id, payload.id))
       .returning();
+    if (!donation) {
+      return Response.json({ error: "Donation not found." }, { status: 404 });
+    }
     return Response.json({ donation });
   } catch (error) {
     return errorResponse(error);

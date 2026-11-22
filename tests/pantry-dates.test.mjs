@@ -20,3 +20,19 @@ test("sample dates remain relative to the first opening day", () => {
   const sampleOffset = daysRemaining("2026-07-19", "2026-07-18");
   assert.equal(dateAfter("2026-10-09", sampleOffset), "2026-10-10");
 });
+
+test("invalid calendar dates can never count as usable food", () => {
+  for (const invalid of ["2026-02-29", "2026-02-30", "2026-04-31", "2026-13-01", "2026-00-05", "not-a-date", "2026-1-1", "2026-10-09T00:00:00Z", "", null]) {
+    assert.equal(Number.isNaN(daysRemaining(invalid, "2026-03-01")), true, String(invalid));
+    assert.equal(isUsableSoon(invalid, "2026-03-01"), false, String(invalid));
+  }
+  assert.equal(daysRemaining("2028-02-29", "2028-02-28"), 1);
+  assert.equal(isUsableSoon("2028-02-29", "2028-02-28"), true);
+});
+
+test("invalid reference dates fail closed without silently rolling forward", () => {
+  assert.equal(Number.isNaN(daysRemaining("2026-03-01", "2026-02-30")), true);
+  assert.equal(isUsableSoon("2026-03-01", "2026-02-30"), false);
+  assert.throws(() => dateAfter("2026-02-30", 1), RangeError);
+  assert.throws(() => dateAfter("2026-03-01", 1.5), RangeError);
+});
